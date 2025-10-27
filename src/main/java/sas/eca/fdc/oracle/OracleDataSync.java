@@ -18,6 +18,10 @@ public class OracleDataSync {
         try {
             props.load(new FileInputStream("config.properties"));
 
+            // Set system properties for logback
+            System.setProperty("log.policy", props.getProperty("log.policy", "date"));
+            System.setProperty("log.maxFileSize", props.getProperty("log.maxFileSize", "100MB"));
+
             String batchMode = props.getProperty("batch.mode", "false");
             int batchSize = Integer.parseInt(props.getProperty("batch.size", "100"));
 
