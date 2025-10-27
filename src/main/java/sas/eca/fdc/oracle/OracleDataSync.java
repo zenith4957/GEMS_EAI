@@ -49,6 +49,8 @@ public class OracleDataSync {
     }
 
     private static void syncData(String selectQuery, String mergeQuery, boolean batchMode, int batchSize) {
+        int id = 0;
+        String name = null;
         try (Statement stmt = sourceConn.createStatement();
                 ResultSet rs = stmt.executeQuery(selectQuery);
                 PreparedStatement ps = targetConn.prepareStatement(mergeQuery)) {
@@ -56,8 +58,14 @@ public class OracleDataSync {
             int count = 0;
 
             while (rs.next()) {
-                ps.setInt(1, rs.getInt("ID"));
-                ps.setString(2, rs.getString("NAME"));
+                id = rs.getInt("ID");
+                name = rs.getString("NAME");
+                ps.setInt(1, id);
+                ps.setString(2, name);
+
+                String queryInfo = String.format("Executing Query: %s | Values: [ID=%d, NAME=%s]", mergeQuery, id,
+                        name);
+                logger.info(queryInfo);
 
                 if (batchMode) {
                     ps.addBatch();
@@ -78,8 +86,9 @@ public class OracleDataSync {
             }
 
         } catch (SQLException e) {
+            String failedQueryInfo = String.format("Failed Query: %s | Values: [ID=%d, NAME=%s]", mergeQuery, id, name);
             logger.error("SQL Error while syncing data: " + e.getMessage(), e);
-            logger.error("Failed Query: " + mergeQuery);
+            logger.error(failedQueryInfo);
         }
     }
 
