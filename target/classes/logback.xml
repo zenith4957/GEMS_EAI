@@ -1,26 +1,31 @@
-# -------------------------------
-# ORACLE DB SYNC CONFIGURATION
-# -------------------------------
+<configuration>
+    <!-- 로그 파일 저장 위치 및 이름 -->
+    <property name="LOG_PATH" value="logs" />
+    <property name="LOG_FILE" value="app.log" />
 
-# Source DB
-source.url=jdbc:oracle:thin:@//source-db-host:1521/SOURCE_SVC
-source.user=SOURCE_USER
-source.password=SOURCE_PASS
+    <!-- 콘솔 출력 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger - %msg%n</pattern>
+        </encoder>
+    </appender>
 
-# Target DB
-target.url=jdbc:oracle:thin:@//target-db-host:1521/TARGET_SVC
-target.user=TARGET_USER
-target.password=TARGET_PASS
+    <!-- 파일 출력 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE}</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 하루 단위로 로그 파일 분리 -->
+            <fileNamePattern>${LOG_PATH}/app.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
 
-# Logging
-log.file=sync.log
-
-# Batch options
-batch.mode=true
-batch.size=500
-
-# SQL Queries
-select.query=SELECT ID, NAME FROM SOURCE_TABLE WHERE ROWNUM <= 1000
-merge.query=MERGE INTO TARGET_TABLE t USING (SELECT ? AS ID, ? AS NAME FROM DUAL) s ON (t.ID = s.ID) \
-WHEN MATCHED THEN UPDATE SET t.NAME = s.NAME \
-WHEN NOT MATCHED THEN INSERT (ID, NAME) VALUES (s.ID, s.NAME);
+    <!-- root logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
