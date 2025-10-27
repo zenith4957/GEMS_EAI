@@ -1,15 +1,15 @@
 package sas.eca.fdc.oracle;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
-import java.util.logging.FileHandler;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 public class OracleDataSync {
-    private static final Logger logger = Logger.getLogger("OracleDataSyncLogger");
+    private static final Logger logger = LoggerFactory.getLogger(OracleDataSync.class);
     private static Connection sourceConn;
     private static Connection targetConn;
 
@@ -17,7 +17,6 @@ public class OracleDataSync {
         Properties props = new Properties();
         try {
             props.load(new FileInputStream("config.properties"));
-            setupLogger(props.getProperty("log.file", "sync.log"));
 
             String batchMode = props.getProperty("batch.mode", "false");
             int batchSize = Integer.parseInt(props.getProperty("batch.size", "100"));
@@ -39,21 +38,14 @@ public class OracleDataSync {
 
             syncData(selectQuery, mergeQuery, Boolean.parseBoolean(batchMode), batchSize);
 
-            logger.info("✅ Data synchronization completed successfully.");
+            logger.info("Data synchronization completed successfully.");
 
         } catch (Exception e) {
-            logger.severe("❌ Error: " + e.getMessage());
-            e.printStackTrace();
+            logger.error(" Error: " + e.getMessage(), e);
         } finally {
             closeConnection(sourceConn);
             closeConnection(targetConn);
         }
-    }
-
-    private static void setupLogger(String logFilePath) throws IOException {
-        FileHandler fh = new FileHandler(logFilePath, true);
-        fh.setFormatter(new SimpleFormatter());
-        logger.addHandler(fh);
     }
 
     private static void syncData(String selectQuery, String mergeQuery, boolean batchMode, int batchSize) {
@@ -86,8 +78,8 @@ public class OracleDataSync {
             }
 
         } catch (SQLException e) {
-            logger.severe("SQL Error while syncing data: " + e.getMessage());
-            logger.severe("Failed Query: " + mergeQuery);
+            logger.error("SQL Error while syncing data: " + e.getMessage(), e);
+            logger.error("Failed Query: " + mergeQuery);
         }
     }
 
@@ -96,7 +88,7 @@ public class OracleDataSync {
             try {
                 conn.close();
             } catch (SQLException e) {
-                logger.warning("Error closing connection: " + e.getMessage());
+                logger.warn("Error closing connection: " + e.getMessage(), e);
             }
         }
     }
