@@ -58,9 +58,9 @@ public class OracleDataSync {
                     ps.setInt(1, id);
                     ps.setString(2, name);
 
-                    String queryInfo = String.format("Executing Query: %s | Values: [ID=%d, NAME=%s]", mergeQuery, id,
-                            name);
-                    logger.info(queryInfo);
+                    String queryInfo = mergeQuery.replaceFirst("\\?", String.valueOf(id)).replaceFirst("\\?",
+                            "'" + name + "'");
+                    logger.info("Executing Query: {}", queryInfo);
 
                     if (batchMode) {
                         ps.addBatch();
@@ -82,9 +82,10 @@ public class OracleDataSync {
 
             }
         } catch (SQLException e) {
-            String failedQueryInfo = String.format("Failed Query: %s | Values: [ID=%d, NAME=%s]", mergeQuery, id, name);
+            String failedQueryInfo = mergeQuery.replaceFirst("\\?", String.valueOf(id)).replaceFirst("\\?",
+                    "'" + name + "'");
             logger.error("SQL Error while syncing data: " + e.getMessage(), e);
-            logger.error(failedQueryInfo);
+            logger.error("Failed Query: {}", failedQueryInfo);
         } finally {
             DatabaseManager.closeConnection(sourceConn);
             DatabaseManager.closeConnection(targetConn);
