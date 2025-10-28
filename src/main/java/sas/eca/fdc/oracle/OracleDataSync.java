@@ -125,6 +125,13 @@ public class OracleDataSync {
         String mergeQuery = props.getProperty("merge.query");
         boolean batchMode = Boolean.parseBoolean(props.getProperty("batch.mode", "false"));
         int batchSize = Integer.parseInt(props.getProperty("batch.size", "100"));
+        boolean truncateMode = Boolean.parseBoolean(props.getProperty("truncate.mode", "false"));
+
+        if (truncateMode) {
+            if (selectQuery.contains("AND TO_DATE(INPUT_DATE")) {
+                selectQuery = selectQuery.split("AND TO_DATE\\(INPUT_DATE")[0];
+            }
+        }
 
         int id = 0;
         String name = null;
