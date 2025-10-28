@@ -52,6 +52,15 @@ public class OracleDataSync {
             return;
         }
 
+        System.out.println("Are you sure you want to execute the following TRUNCATE query? (yes/no)");
+        System.out.println(truncateQuery);
+        String userInput = System.console().readLine();
+
+        if (!"yes".equalsIgnoreCase(userInput)) {
+            logger.info("Truncate operation cancelled by user.");
+            return;
+        }
+
         Connection conn = null;
         try {
             conn = DatabaseManager.getConnection(props, "target");
