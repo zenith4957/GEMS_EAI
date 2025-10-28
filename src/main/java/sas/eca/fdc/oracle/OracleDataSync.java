@@ -9,6 +9,10 @@ import java.io.IOException;
 import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.Properties;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.Calendar;
 
 public class OracleDataSync {
     private static final Logger logger = LoggerFactory.getLogger(OracleDataSync.class);
@@ -17,11 +21,48 @@ public class OracleDataSync {
         try {
             Properties props = initialize();
             runPreSyncTasks(props);
+
+            // Run the first sync immediately
+            logger.info("Starting initial data synchronization.");
             syncData(props);
-            logger.info("Data synchronization completed successfully.");
+            logger.info("Initial data synchronization completed successfully.");
+
+            scheduleNextSync(props);
         } catch (Exception e) {
-            logger.error("Error during data synchronization process: " + e.getMessage(), e);
+            logger.error("An error occurred during the data synchronization process: " + e.getMessage(), e);
         }
+    }
+
+    private static void scheduleNextSync(Properties props) {
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        long initialDelay = calculateInitialDelay();
+        long period = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                logger.info("Starting scheduled data synchronization.");
+                syncData(props);
+                logger.info("Scheduled data synchronization completed successfully.");
+            } catch (Exception e) {
+                logger.error("Error during scheduled data synchronization: " + e.getMessage(), e);
+            }
+        }, initialDelay, period, TimeUnit.MILLISECONDS);
+
+        logger.info("Scheduler started for daily sync at 1 PM.");
+    }
+
+    private static long calculateInitialDelay() {
+        Calendar now = Calendar.getInstance();
+        Calendar nextRun = Calendar.getInstance();
+        nextRun.set(Calendar.HOUR_OF_DAY, 13);
+        nextRun.set(Calendar.MINUTE, 0);
+        nextRun.set(Calendar.SECOND, 0);
+
+        if (now.after(nextRun)) {
+            nextRun.add(Calendar.DATE, 1);
+        }
+
+        return nextRun.getTimeInMillis() - now.getTimeInMillis();
     }
 
     private static void runPreSyncTasks(Properties props) {
