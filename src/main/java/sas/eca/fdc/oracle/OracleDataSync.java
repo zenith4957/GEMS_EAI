@@ -7,6 +7,7 @@ import sas.eca.fdc.db.DatabaseManager;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.util.Properties;
 
 public class OracleDataSync {
@@ -33,6 +34,7 @@ public class OracleDataSync {
     private static void syncData(Properties props) {
         String selectQuery = props.getProperty("select.query");
         String mergeQuery = props.getProperty("merge.query");
+        String trucateQuery = props.getProperty("truncate.query");
         boolean batchMode = Boolean.parseBoolean(props.getProperty("batch.mode", "false"));
         int batchSize = Integer.parseInt(props.getProperty("batch.size", "100"));
 
@@ -40,6 +42,23 @@ public class OracleDataSync {
         String name = null;
         Connection sourceConn = null;
         Connection targetConn = null;
+        if (truncateMode){
+            logger.info("backup start");
+            backupTable("TARGET_TABLE");
+            logger.info("backup end")
+
+            logger.info("Start truncate table : " + trucateQuery)
+            try(Statement truncStmt = targetConn.createStatement()){
+                truncStmt.executeUpdate(truncateQuery);
+                targetConn.commit();
+                logger.inf("Completed truncate table");
+
+            } catch (SQLException e){
+                logger.error("SQL Error while truncate table: " + e.getMessage(), e);
+                System.out.println("Truncate fils.Process killed");
+                System.exit(-1);
+            }
+        }
 
         try {
             sourceConn = DatabaseManager.getConnection(props, "source");
@@ -89,6 +108,50 @@ public class OracleDataSync {
         } finally {
             DatabaseManager.closeConnection(sourceConn);
             DatabaseManager.closeConnection(targetConn);
+        }
+    }
+
+    private static void backupTable(String tableName) {
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+            String formattedString = sdf.format(new Timestamp(System.currentTimeMillis()));
+            logger.info(formattedString);
+
+            targetConn = DatabaseManager.getConnection(props, "target");
+
+            Statement statement = targetConn.createStatement();
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM " + tableName);
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            while (resultSet.next()) {
+                StringBuilder insertStatement = new StringBuilder("INSERT INTO " + tableName + " VALUES (");
+
+                for (int i = 1; i <= columnCount; i++) {
+                    Object value = resultSet.getObject(i);
+                    if (value == null) {
+                        insertStatement.append("NULL");
+                    } else if (value instanceof String || value instanceof java.util.Date
+                            || value instanceof java.sql.Timestamp) {
+                        insertStatement.append("'").append(value.toString().replace("'", "''")).append("'");
+
+                    } else {
+                        insertStatement.append(value);
+                    }
+                    if (i < columnCount) {
+                        insertStatement.append(", ");
+                    }
+                }
+                insertStatement.append(");");
+
+                System.out.println(insertStatement.toString());
+            }
+            resultSet.close();
+            statement.close();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 }
