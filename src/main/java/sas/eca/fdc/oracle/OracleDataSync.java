@@ -63,6 +63,8 @@ public class OracleDataSync {
         } catch (SQLException e) {
             logger.error("SQL Error while truncating table: " + e.getMessage(), e);
             logger.error("Failed Query: {}", truncateQuery);
+        } catch (Exception e) {
+            logger.error("An unexpected error occurred during truncate: " + e.getMessage(), e);
         } finally {
             DatabaseManager.closeConnection(conn);
         }
@@ -124,6 +126,10 @@ public class OracleDataSync {
                     "'" + name + "'");
             logger.error("SQL Error while syncing data: " + e.getMessage(), e);
             logger.error("Failed Query: {}", failedQueryInfo);
+            DatabaseManager.rollback(targetConn);
+        } catch (Exception e) {
+            logger.error("An unexpected error occurred during data sync: " + e.getMessage(), e);
+            DatabaseManager.rollback(targetConn);
         } finally {
             DatabaseManager.closeConnection(sourceConn);
             DatabaseManager.closeConnection(targetConn);
@@ -168,6 +174,8 @@ public class OracleDataSync {
 
         } catch (SQLException e) {
             logger.error("SQL Error during backup: " + e.getMessage(), e);
+        } catch (Exception e) {
+            logger.error("An unexpected error occurred during backup: " + e.getMessage(), e);
         } finally {
             DatabaseManager.closeConnection(targetConn);
         }

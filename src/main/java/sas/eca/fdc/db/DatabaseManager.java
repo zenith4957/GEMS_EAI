@@ -20,6 +20,17 @@ public class DatabaseManager {
                 props.getProperty(prefix + "password"));
     }
 
+    public static void rollback(Connection conn) {
+        if (conn != null) {
+            try {
+                logger.info("Rolling back transaction.");
+                conn.rollback();
+            } catch (SQLException e) {
+                logger.error("Error during transaction rollback: " + e.getMessage(), e);
+            }
+        }
+    }
+
     public static void closeConnection(Connection conn) {
         if (conn != null) {
             try {
