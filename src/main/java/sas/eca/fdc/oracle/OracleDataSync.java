@@ -14,27 +14,63 @@ public class OracleDataSync {
     private static final Logger logger = LoggerFactory.getLogger(OracleDataSync.class);
 
     public static void main(String[] args) {
-        Properties props = new Properties();
         try {
-            props.load(new FileInputStream("config.properties"));
-
-            // Set system properties for logback
-            System.setProperty("log.policy", props.getProperty("log.policy", "date"));
-            System.setProperty("log.maxFileSize", props.getProperty("log.maxFileSize", "100MB"));
-
+            Properties props = initialize();
+            runPreSyncTasks(props);
             syncData(props);
-
             logger.info("Data synchronization completed successfully.");
-
         } catch (Exception e) {
-            logger.error(" Error: " + e.getMessage(), e);
+            logger.error("Error during data synchronization process: " + e.getMessage(), e);
+        }
+    }
+
+    private static void runPreSyncTasks(Properties props) {
+        if (Boolean.parseBoolean(props.getProperty("truncate.mode", "false"))) {
+            String tableName = props.getProperty("truncate.table");
+            if (tableName != null && !tableName.trim().isEmpty()) {
+                backupTable(props, tableName);
+            }
+            truncateTable(props);
+        }
+    }
+
+    private static Properties initialize() throws IOException {
+        Properties props = new Properties();
+        props.load(new FileInputStream("config.properties"));
+
+        // Set system properties for logback
+        System.setProperty("log.policy", props.getProperty("log.policy", "date"));
+        System.setProperty("log.maxFileSize", props.getProperty("log.maxFileSize", "100MB"));
+
+        return props;
+    }
+
+    private static void truncateTable(Properties props) {
+        String truncateQuery = props.getProperty("truncate.query");
+        if (truncateQuery == null || truncateQuery.trim().isEmpty()) {
+            logger.warn("Truncate query is empty. Skipping truncate operation.");
+            return;
+        }
+
+        Connection conn = null;
+        try {
+            conn = DatabaseManager.getConnection(props, "target");
+            try (Statement stmt = conn.createStatement()) {
+                logger.info("Executing Query: {}", truncateQuery);
+                stmt.execute(truncateQuery);
+                logger.info("Table truncated successfully.");
+            }
+        } catch (SQLException e) {
+            logger.error("SQL Error while truncating table: " + e.getMessage(), e);
+            logger.error("Failed Query: {}", truncateQuery);
+        } finally {
+            DatabaseManager.closeConnection(conn);
         }
     }
 
     private static void syncData(Properties props) {
         String selectQuery = props.getProperty("select.query");
         String mergeQuery = props.getProperty("merge.query");
-        String trucateQuery = props.getProperty("truncate.query");
         boolean batchMode = Boolean.parseBoolean(props.getProperty("batch.mode", "false"));
         int batchSize = Integer.parseInt(props.getProperty("batch.size", "100"));
 
@@ -42,23 +78,6 @@ public class OracleDataSync {
         String name = null;
         Connection sourceConn = null;
         Connection targetConn = null;
-        if (truncateMode){
-            logger.info("backup start");
-            backupTable("TARGET_TABLE");
-            logger.info("backup end")
-
-            logger.info("Start truncate table : " + trucateQuery)
-            try(Statement truncStmt = targetConn.createStatement()){
-                truncStmt.executeUpdate(truncateQuery);
-                targetConn.commit();
-                logger.inf("Completed truncate table");
-
-            } catch (SQLException e){
-                logger.error("SQL Error while truncate table: " + e.getMessage(), e);
-                System.out.println("Truncate fils.Process killed");
-                System.exit(-1);
-            }
-        }
 
         try {
             sourceConn = DatabaseManager.getConnection(props, "source");
@@ -111,14 +130,11 @@ public class OracleDataSync {
         }
     }
 
-    private static void backupTable(String tableName) {
-
+    private static void backupTable(Properties props, String tableName) {
+        Connection targetConn = null;
         try {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-            String formattedString = sdf.format(new Timestamp(System.currentTimeMillis()));
-            logger.info(formattedString);
-
             targetConn = DatabaseManager.getConnection(props, "target");
+            logger.info("Backup started for table: {}", tableName);
 
             Statement statement = targetConn.createStatement();
             ResultSet resultSet = statement.executeQuery("SELECT * FROM " + tableName);
@@ -151,7 +167,9 @@ public class OracleDataSync {
             statement.close();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("SQL Error during backup: " + e.getMessage(), e);
+        } finally {
+            DatabaseManager.closeConnection(targetConn);
         }
     }
 }
